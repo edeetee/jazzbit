@@ -1,0 +1,3 @@
+Make a class that manages a synth and its random variables
+
+The random variables will be controlled by 2d perlin noise and gaussian value. The 2d perlin noise will be output by an actor that moves around that 2d space so that they have a probability of repeating or rehashing what they have already outputted.

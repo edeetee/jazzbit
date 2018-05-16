@@ -1,6 +1,10 @@
 import Tone from 'Tone'
 import * as d3 from 'd3-random'
-import {transpose, Scale, Chord} from 'tonal'
+import {Scale, Chord} from 'tonal'
+import Noise from 'noisejs'
+import Perlin from "proc-noise"
+
+import Slider from 'nouislider'
 
 var kickSynth = new Tone.MembraneSynth({
     envelope: {
@@ -12,14 +16,16 @@ var kickSynth = new Tone.MembraneSynth({
 var chordSynth = new Tone.FMSynth({
     modulationIndex: 1,
     envelope: {
-        release: 0
+        release: 0.15
     }
 }).toMaster()
 
-let timeDist = d3.randomNormal(0.1, 0.01)
+let timeDist = d3.randomNormal(0.3, 0.3)
 
-let doNoteDist = d3.randomNormal(0.5, 0.5)
+let noteValDist = d3.randomNormal(0.5, 0.2)
 
+// let noise = new Noise(Math.random())
+let perlin = new Perlin(Math.random())
 
 function timeMap(start, length, from, to){
     to = typeof to === 'undefined' ? 1 : to
@@ -27,20 +33,42 @@ function timeMap(start, length, from, to){
 
     return Math.min(to, Math.max(from+to*(Date.now()-start)/length, from))
 }
+/**@param {Number[]} chordArr
+ * @param {Function} dist
+ * @param {Number} [baseOctave]
+ * @param {Number} [baseVal]
+ */
+function distToNote(chordArr, dist, baseVal){
+    baseVal = baseVal || 0
 
-function randElm(arr) {
-    let i = Math.floor(Math.random()*arr.length)
-    return arr[i]
+    let val = dist()+baseVal
+    let octave = Math.floor(val)
+    let i = Math.floor((val-octave)*chordArr.length)
+
+    return chordArr[i] + String(octave)
 }
 
 let start = Date.now()
+function seconds(){
+    return (start-Date.now())/1000
+}
 
-let notes = Scale.notes("C bebop")
+let notes = Scale.notes("C blues")
 console.log(notes)
 
+var slider = document.getElementById('slider')
+Slider.create(slider, {
+    start: 0,
+    range: {
+        'min': 0,
+        'max': 100
+    }
+})
+
 Tone.Transport.scheduleRepeat(function(time){
-    kickSynth.triggerAttackRelease('C0', '8n', time)
-}, "4n");
+    if(Math.random() < 0.7)
+        kickSynth.triggerAttackRelease('C0', '8n', time)
+}, "8n");
 
 // Tone.Transport.scheduleRepeat(function(time){
 //     if(doNoteDist() < timeMap(start, 10000, 0.7, 1))
@@ -48,8 +76,14 @@ Tone.Transport.scheduleRepeat(function(time){
 // }, "16n");
 
 Tone.Transport.scheduleRepeat(function(time){
-    if(doNoteDist() < 0.9 || true)
-        chordSynth.triggerAttackRelease(randElm(notes)+"3", '16n', time)
+    if(Math.random() < 0.4 && chordSynth){
+        let length = Math.max(0.1, timeDist());
+        let note = distToNote(notes, noteValDist, 2.5+perlin.noise(seconds()))
+        let lengthT = new Tone.Time(length).quantize("16n")
+        console.log(lengthT)
+        if(lengthT != 0)
+            chordSynth.triggerAttackRelease(note, length, time)
+    }
 }, "16n");
 
 Tone.Transport.swing = 0.4
