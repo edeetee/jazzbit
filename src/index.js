@@ -1,10 +1,8 @@
-import Tone from 'Tone'
+import Tone from 'tone'
 import * as d3 from 'd3-random'
 import {Scale, Chord} from 'tonal'
 import Noise from 'noisejs'
 import Perlin from "proc-noise"
-
-import Slider from 'nouislider'
 
 var kickSynth = new Tone.MembraneSynth({
     envelope: {
@@ -14,13 +12,14 @@ var kickSynth = new Tone.MembraneSynth({
 }).toMaster()
 
 var chordSynth = new Tone.FMSynth({
-    modulationIndex: 1,
+    modulationIndex: 2,
     envelope: {
-        release: 0.15
+        attack: 0.1,
+        release: 0.01
     }
 }).toMaster()
 
-let timeDist = d3.randomNormal(0.3, 0.3)
+let timeDist = d3.randomNormal(Tone.Time("8n").toSeconds(), Tone.Time("16n").toSeconds())
 
 let noteValDist = d3.randomNormal(0.5, 0.2)
 
@@ -53,36 +52,38 @@ function seconds(){
     return (start-Date.now())/1000
 }
 
-let notes = Scale.notes("C blues")
-console.log(notes)
+let notes = Scale.notes("E# minor")
 
 var slider = document.getElementById('slider')
-Slider.create(slider, {
-    start: 0,
-    range: {
-        'min': 0,
-        'max': 100
-    }
-})
+slider.addEventListener('change', updateBpm)
 
-Tone.Transport.scheduleRepeat(function(time){
-    if(Math.random() < 0.7)
-        kickSynth.triggerAttackRelease('C0', '8n', time)
-}, "8n");
+function updateBpm(){
+    Tone.Transport.bpm.rampTo(slider.valueAsNumber, 1)
+    console.log(slider.valueAsNumber)
+}
+
+// Tone.Transport.scheduleRepeat(function(time){
+//     if(Math.random() < 0.9)
+//         kickSynth.triggerAttackRelease('C0', '8n', time)
+// }, "8n");
 
 // Tone.Transport.scheduleRepeat(function(time){
 //     if(doNoteDist() < timeMap(start, 10000, 0.7, 1))
 //         chordSynth.triggerAttackRelease(randElm(notes)+"3", '16n', time)
 // }, "16n");
 
+let noteEnd = 0;
+
 Tone.Transport.scheduleRepeat(function(time){
-    if(Math.random() < 0.4 && chordSynth){
-        let length = Math.max(0.1, timeDist());
+    if(Math.random() < 0.7 && noteEnd < time){
+        let length = Math.max(0.01, timeDist());
         let note = distToNote(notes, noteValDist, 2.5+perlin.noise(seconds()))
         let lengthT = new Tone.Time(length).quantize("16n")
-        console.log(lengthT)
-        if(lengthT != 0)
+        // console.log(new Tone.Time(lengthT).toNotation())
+        if(lengthT != 0){
             chordSynth.triggerAttackRelease(note, length, time)
+            noteEnd = time+length;
+        }
     }
 }, "16n");
 
