@@ -33,15 +33,22 @@ function timeMap(start, length, from, to){
 
     return Math.min(to, Math.max(from+to*(Date.now()-start)/length, from))
 }
-/**@param {Number[]} chordArr
+/**@param {String[]} chordArr
  * @param {Function} dist
- * @param {Number} [baseOctave]
  * @param {Number} [baseVal]
+ * @return {String}
  */
 function distToNote(chordArr, dist, baseVal){
     baseVal = baseVal || 0
 
-    let val = dist()+baseVal
+    return floatToNote(chordArr, dist()+baseVal)
+}
+
+/**@param {Number[]} chordArr
+ * @param {String} val
+ * @return {String}
+ */
+function floatToNote(chordArr, val){
     let octave = Math.floor(val)
     let i = Math.floor((val-octave)*chordArr.length)
 
@@ -50,7 +57,7 @@ function distToNote(chordArr, dist, baseVal){
 
 let start = Date.now()
 function seconds(){
-    return (start-Date.now())/1000
+    return (Date.now()-start)/1000
 }
 
 let notes = Scale.notes("C blues")
@@ -75,14 +82,17 @@ Tone.Transport.scheduleRepeat(function(time){
 //         chordSynth.triggerAttackRelease(randElm(notes)+"3", '16n', time)
 // }, "16n");
 
+
 Tone.Transport.scheduleRepeat(function(time){
-    if(Math.random() < 0.4 && chordSynth){
+    if(Math.random() < 0.6 && chordSynth){
         let length = Math.max(0.1, timeDist());
-        let note = distToNote(notes, noteValDist, 2.5+perlin.noise(seconds()))
-        let lengthT = new Tone.Time(length).quantize("16n")
-        console.log(lengthT)
-        if(lengthT != 0)
-            chordSynth.triggerAttackRelease(note, length, time)
+        // let note = distToNote(notes, noteValDist, 2.5+perlin.noise(seconds()))
+        let note = floatToNote(notes, 1+seconds()/3)
+        let lengthT = new Tone.Time(length).quantize("16t")
+        if(lengthT != 0){
+            console.log(note)
+            chordSynth.triggerAttackRelease(note, lengthT, time)
+        }
     }
 }, "16n");
 
