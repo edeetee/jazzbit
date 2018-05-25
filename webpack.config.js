@@ -1,13 +1,12 @@
 const path = require('path')
 const webpack = require('webpack')
+const HtmlWebpackPlugin = require('html-webpack-plugin')
 
 module.exports = {
     output: {
         path: path.resolve(__dirname, "dist"),
     },
     devtool: "inline-source-map",
-
-	// config.output.chunkFilename = '[name].chunk.js'
 
 	optimization: {
 		minimize: false,
@@ -23,5 +22,9 @@ module.exports = {
 	},
     
     plugins: [
+		new HtmlWebpackPlugin({
+			title: "Jazzbit",
+			template: "src/index.html"
+		})
     ]
 }
