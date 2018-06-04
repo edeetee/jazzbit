@@ -6,7 +6,21 @@ module.exports = {
     output: {
         path: path.resolve(__dirname, "dist"),
     },
-    devtool: "inline-source-map",
+	devtool: "inline-source-map",
+	mode: process.env.WEBPACK_SERVE ? 'development' : 'production',
+	
+	module: {
+		rules: [
+			{
+				test: /\.css$/,
+				use: [ 'style-loader', 'css-loader' ]
+			},
+			{
+				test: /\.(ico|gif|png|jpg|jpeg|svg|webp)$/,
+				use: ['file-loader']
+			}
+		]
+	},
 
 	optimization: {
 		minimize: false,
@@ -24,7 +38,7 @@ module.exports = {
     plugins: [
 		new HtmlWebpackPlugin({
 			title: "Jazzbit",
-			template: "src/index.html"
+			template: "src/index.html",
 		})
     ]
 }

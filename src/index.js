@@ -1,99 +1,120 @@
-import Tone from 'tone'
-import * as d3 from 'd3-random'
-import {Scale, Chord} from 'tonal'
-import Noise from 'noisejs'
-import Perlin from "proc-noise"
+import Tone, { MembraneSynth, FMSynth, Transport, Synth, context } from 'tone'
+import { Scale, Chord, Note } from 'tonal'
+import * as Key from 'tonal-key'
+import {randomNormal} from 'd3-random'
 
-var kickSynth = new Tone.MembraneSynth({
+import * as Instrument from './instrument'
+import SynthEditor, {doCircle} from './gui'
+
+var {staticReturn, perlinNoise, Repeater, floatToNote, toSecs, movingMean, seconds} = Instrument;
+
+//visual logic
+
+let chords = Key.chords("C minor")
+// console.log(Chord.notes(chords[0]))
+let notes = getChord(3)
+
+function getChord(number){
+    return Chord.notes(chords[number-1]).map(Note.simplify)
+}
+
+// var slider = document.getElementById('slider')
+// slider.addEventListener('change', updateBpm)
+
+// function updateBpm() {
+//     Transport.bpm.value = slider.valueAsNumber;
+//     Transport.stop()
+//     Transport.start()
+// }
+
+Transport.bpm.value = 100;
+
+//synthesisers
+
+var melodySynth = new FMSynth({
+    "harmonicity": 8,
+    "modulationIndex": 10,
+    "oscillator": {
+        "type": "square"
+    },
+    "envelope": {
+        "attack": 0.001,
+        "decay": 2,
+        "sustain": 0.1,
+        "release": 2
+    },
+    "modulation": {
+        "type": "square"
+    },
+    "modulationEnvelope": {
+        "attack": 0.002,
+        "decay": 0.2,
+        "sustain": 0,
+        "release": 0.2
+    }
+})
+
+var kickSynth = new MembraneSynth({
     envelope: {
         attack: 0.01,
         attackCurve: 'exponential'
     }
-}).toMaster()
+})
 
-var chordSynth = new Tone.FMSynth({
-    modulationIndex: 2,
-    envelope: {
-        attack: 0.1,
-        release: 0.01
+let bassSynth = new Tone.AMSynth({
+    oscillator: {
+        type: 'sine'
     }
-}).toMaster()
+});
 
-let timeDist = d3.randomNormal(Tone.Time("8n").toSeconds(), Tone.Time("16n").toSeconds())
+let editor = new SynthEditor("jsoncontainer", melodySynth)
 
-let noteValDist = d3.randomNormal(0.5, 0.2)
+//instrument controllers
 
-// let noise = new Noise(Math.random())
-let perlin = new Perlin(Math.random())
+// new Instrument.Repeater(kickSynth, {
+//     note: "C-1",
+//     length: "8n",
+//     getProbability: perlinNoise(0.3, 0.2, 0.8),
+//     probability: 1
+// })
 
-function timeMap(start, length, from, to){
-    to = typeof to === 'undefined' ? 1 : to
-    from = from || 0
+var backing = new Instrument.Repeater(bassSynth, {
+    notes: notes,
+    getNote: movingMean(perlinNoise(0.2, 1, 1), 0.3),
+    probability: 1,
+    getLength: randomNormal(toSecs("1m"), toSecs("2n")),
+    quantize: '4n',
+    onDraw: doCircle
+}).Debug()
 
-    return Math.min(to, Math.max(from+to*(Date.now()-start)/length, from))
-}
-/**@param {String[]} chordArr
- * @param {Function} dist
- * @param {Number} [baseVal]
- * @return {String}
- */
-function distToNote(chordArr, dist, baseVal){
-    baseVal = baseVal || 0
+var melody = new Instrument.Repeater(melodySynth, {
+    notes: notes,
+    getNote: movingMean(perlinNoise(0.2, 2.5, 4), 0.2),
+    // getNote: perlinNoise(3, 3, 1),
+    // getNote: () => seconds()/3,
+    // getProbability: movingMean(perlinNoise(1, 0.5, 0.4), 0.1),
+    probability: 1,
+    getLength: randomNormal(toSecs("8n"), toSecs("64n")),
+    length: toSecs('8n'),
+    quantize: '16n',
+    snap: "8n",
+    onDraw: doCircle
+})
 
-    return floatToNote(chordArr, dist()+baseVal)
-}
+let i = 0;
+let intervals = [1, 6, 2, 5]
+Transport.scheduleRepeat(time => {
+    let newInt = intervals[i++%intervals.length]-1;
+    // let chord = Note.simplify(chords[newInt]) + " minor blues"
+    // console.log("CHORD: " + chord)
+    // notes = Scale.notes(chord).map(Note.simplify).map(note => note)
+    console.log(chords[newInt])
+    melody.notes = Chord.notes(chords[newInt])
+    // backing.notes = notes
+}, "4m")
 
-/**@param {Number[]} chordArr
- * @param {String} val
- * @return {String}
- */
-function floatToNote(chordArr, val){
-    let octave = Math.floor(val)
-    let i = Math.floor((val-octave)*chordArr.length)
+Transport.swing = 0
+context.latencyHint = process.env.NODE_ENV == "production" ? "playback" : "balanced"
 
-    return chordArr[i] + String(octave)
-}
-
-let start = Date.now()
-function seconds(){
-    return (Date.now()-start)/1000
-}
-
-let notes = Scale.notes("E# minor")
-
-var slider = document.getElementById('slider')
-slider.addEventListener('change', updateBpm)
-
-function updateBpm(){
-    Tone.Transport.bpm.rampTo(slider.valueAsNumber, 1)
-    console.log(slider.valueAsNumber)
-}
-
-// Tone.Transport.scheduleRepeat(function(time){
-//     if(Math.random() < 0.9)
-//         kickSynth.triggerAttackRelease('C0', '8n', time)
-// }, "8n");
-
-// Tone.Transport.scheduleRepeat(function(time){
-//     if(doNoteDist() < timeMap(start, 10000, 0.7, 1))
-//         chordSynth.triggerAttackRelease(randElm(notes)+"3", '16n', time)
-// }, "16n");
-
-let noteEnd = 0;
-
-Tone.Transport.scheduleRepeat(function(time){
-    if(Math.random() < 0.7 && noteEnd < time){
-        let lengthVal = Math.max(0.01, timeDist());
-        let length = new Tone.Time(lengthVal).quantize("16n")
-
-        let note = distToNote(notes, noteValDist, 2.5+perlin.noise(seconds()))
-        if(lengthT != 0){
-            chordSynth.triggerAttackRelease(note, length, time)
-            noteEnd = time+length;
-        }
-    }
-}, "16n");
-
-Tone.Transport.swing = 0.4
-
-Tone.Transport.start()
+//also starts transport
+Transport.start()

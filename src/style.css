@@ -1,0 +1,24 @@
+#jsoncontainer{
+    width: 400px;
+    position: absolute;
+    padding: 10px;
+    opacity: 0.4;
+    left: -300px;
+
+    transition: all 0.2s;
+}
+
+#jsoncontainer:hover {
+    opacity: 1;
+    left: 0px;
+}
+
+#jsoncontainer > * {
+    background: white;
+}
+
+#p5Container > * {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+}
