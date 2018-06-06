@@ -38,9 +38,8 @@ export function floatToNote(chordArr, val) {
     return chordArr[i] + String(octave)
 }
 
-let start = Transport.seconds
 export function seconds() {
-    return Transport.seconds - start
+    return Transport.seconds
 }
 
 export function waitForTime(time) {
@@ -79,7 +78,7 @@ export class Repeater {
      * @param {RepeaterOptions} options
      */
     constructor(instrument, options) {
-        let {quantize, snap} = options;
+        let {quantize} = options;
         this.note = options.note;
         this.notes = options.notes;
 
@@ -91,12 +90,11 @@ export class Repeater {
         let getProbability = options.probability ? () => options.probability : 
             options.getProbability
 
-        let getNote = this.note ? () => options.note : 
+        let getNote = this.note ? () => this.note : 
         this.notes ? () => floatToNote(this.notes, options.getNote()) : 
                 options.getNote
 
         let seed = newSeed()
-        instrument.toMaster()
         instrument.sync()
         this.instrument = instrument
 
@@ -114,10 +112,14 @@ export class Repeater {
 
             if (Math.random() < getProbability() && 0 < length) {
                 let note = getNote()
+                // if(this.debug) console.log(note + ', ' + Time(length).toNotation())
                 instrument.triggerAttackRelease(note, length, time)
                 
-                if(this.debug) console.log(note + ', ' + Time(length).toNotation())
-                if(options.onDraw) options.onDraw(time, length, note, instrument.envelope)
+                Draw.schedule(() => {
+                    if(options.onDraw) options.onDraw(time, length, note, instrument.envelope)
+                    if(this.debug) console.log(note + ', ' + Time(length).toNotation())
+                }, time+context.lookAhead)
+                // if(options.onDraw) options.onDraw(time+context.lookAhead, length, note, instrument.envelope)
 
             } else if(this.debug){
                 if(length <= 0)
@@ -130,34 +132,30 @@ export class Repeater {
             // this.id = Transport.schedule(playNote, length + time - context.lookAhead)
         }.bind(this)
 
-        let buffer = 1;
+        let buffer = 0.5;
 
-        let snapSecs = toSecs(options.snap)
+        let minSecs = toSecs(quantize || "64n")
 
         let processTime = 0;
-        let process = () => {
-            // console.log(Transport.seconds+buffer)
-            // console.log(processTime < Transport.seconds+buffer)
+        let process = (time) => {
             
             //repeat till fills buffer time
-            while(processTime < Transport.seconds+buffer){
+            while(processTime < time+buffer){
                 //jump up if behind
-                if(processTime < Transport.seconds){
-                    console.log("jumped buffer")
-                    processTime = Transport.seconds+buffer
+                if(processTime < time){
+                    processTime = time+buffer
                 }
 
                 let length = playNote(processTime);
-                if(options.snap)
-                    length = Math.max(Math.round(length/snapSecs)*snapSecs, snapSecs)
+                if(length < minSecs)
+                    length = minSecs
 
                 processTime += length
             }
-            this.id = Transport.schedule(process, Transport.seconds+buffer*0.01)
         }
 
-        //start
-        process()
+        process(0)
+        Transport.scheduleRepeat(process, "64n")
 
         //start it
         // this.id = Transport.schedule(process, 0)

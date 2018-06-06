@@ -4,30 +4,55 @@ import * as Key from 'tonal-key'
 import {randomNormal} from 'd3-random'
 
 import * as Instrument from './instrument'
-import SynthEditor, {doCircle} from './gui'
+import SynthEditor, {doCircle, circleDrawer} from './gui'
 
 var {staticReturn, perlinNoise, Repeater, floatToNote, toSecs, movingMean, seconds} = Instrument;
 
 //visual logic
+let bases = Note.names(" b")
+let key = bases[Math.floor(bases.length*Math.random())] + (Math.random()<0.5 ? " minor" : " major")
+console.log("Key: " + key)
+let chords = Key.chords(key)
 
-let chords = Key.chords("C minor")
-// console.log(Chord.notes(chords[0]))
-let notes = getChord(3)
+let i = 0;
+let progressions = [[4,5,1], [2,5,1], [5,2,1], [3,2,1], [3,4,1]]
+let progression = progressions[Math.floor(progressions.length*Math.random())]
 
-function getChord(number){
-    return Chord.notes(chords[number-1]).map(Note.simplify)
+let chord = Chord.notes(chords[progression[0]])
+
+Transport.scheduleRepeat(time => {
+    let newInt = progression[i]-1;
+    i++;
+    if(i == progression.length){
+        progression = progressions[Math.floor(progressions.length*Math.random())]
+        i = 0
+    }
+    // let chord = Note.simplify(chords[newInt]) + " minor blues"
+    // console.log("CHORD: " + chord)
+    // notes = Scale.notes(chord).map(Note.simplify).map(note => note)
+    console.log("Chord: " + chords[newInt])
+    chord = Chord.notes(chords[newInt])
+}, "4m")
+
+let notes = Scale.notes(key + ' blues')
+console.log("notes: " + notes)
+
+function getRandom(arr, n) {
+    var result = new Array(n),
+        len = arr.length,
+        taken = new Array(len);
+    if (n > len)
+        throw new RangeError("getRandom: more elements taken than available");
+    while (n--) {
+        var x = Math.floor(Math.random() * len);
+        result[n] = arr[x in taken ? taken[x] : x];
+        taken[x] = --len in taken ? taken[len] : len;
+    }
+    return result;
 }
 
-// var slider = document.getElementById('slider')
-// slider.addEventListener('change', updateBpm)
 
-// function updateBpm() {
-//     Transport.bpm.value = slider.valueAsNumber;
-//     Transport.stop()
-//     Transport.start()
-// }
-
-Transport.bpm.value = 100;
+Transport.bpm.value = 70+50*Math.random();
 
 //synthesisers
 
@@ -38,8 +63,8 @@ var melodySynth = new FMSynth({
         "type": "square"
     },
     "envelope": {
-        "attack": 0.001,
-        "decay": 2,
+        "attack": 0.01,
+        "decay": 1,
         "sustain": 0.1,
         "release": 2
     },
@@ -52,68 +77,81 @@ var melodySynth = new FMSynth({
         "sustain": 0,
         "release": 0.2
     }
-})
+}).toMaster()
 
+var kickEff = new Tone.Distortion(0.2).toMaster();
 var kickSynth = new MembraneSynth({
-    envelope: {
-        attack: 0.01,
-        attackCurve: 'exponential'
+    octaves: 6,
+    pitchDecay: toSecs("8n"),
+    "envelope": {
+        "attack": 0.2,
+        "attackCurve": 'exponential',
+        "release": 0.1
     }
 })
+kickSynth.connect(kickEff)
 
-let bassSynth = new Tone.AMSynth({
+let cymbalSynth = new Tone.MetalSynth({
+    
+}).toMaster()
+
+let effect = new Tone.Chorus(1/toSecs('4n'), 1/toSecs('2n'), 0.6).toMaster();
+let bassSynth = new Tone.PolySynth(4, Tone.AMSynth)
+bassSynth.set({
+    harmonicity: 1,
     oscillator: {
         type: 'sine'
     }
-});
+})
+bassSynth.connect(effect)
 
-let editor = new SynthEditor("jsoncontainer", melodySynth)
+let editor = new SynthEditor("jsoncontainer", kickSynth)
 
 //instrument controllers
 
-// new Instrument.Repeater(kickSynth, {
-//     note: "C-1",
-//     length: "8n",
-//     getProbability: perlinNoise(0.3, 0.2, 0.8),
-//     probability: 1
-// })
+let percussionProb = perlinNoise(0.5, 0, 1)
 
-var backing = new Instrument.Repeater(bassSynth, {
-    notes: notes,
-    getNote: movingMean(perlinNoise(0.2, 1, 1), 0.3),
-    probability: 1,
-    getLength: randomNormal(toSecs("1m"), toSecs("2n")),
-    quantize: '4n',
-    onDraw: doCircle
+new Instrument.Repeater(kickSynth, {
+    note: "C1",
+    getLength: randomNormal(toSecs("8n"), toSecs("4n")),
+    quantize: '8n',
+    getProbability: percussionProb,
+    probability: 1
 }).Debug()
 
-var melody = new Instrument.Repeater(melodySynth, {
-    notes: notes,
-    getNote: movingMean(perlinNoise(0.2, 2.5, 4), 0.2),
-    // getNote: perlinNoise(3, 3, 1),
-    // getNote: () => seconds()/3,
-    // getProbability: movingMean(perlinNoise(1, 0.5, 0.4), 0.1),
+new Instrument.Repeater(cymbalSynth, {
+    note: "C1",
+    getLength: randomNormal(toSecs("8n"), toSecs("4n")),
+    quantize: '8n',
+    getProbability: percussionProb,
+    probability: 1
+}).Debug()
+
+new Instrument.Repeater(bassSynth, {
+    // notes: Chord.notes(chords[progression[0]]),
+    // getNote: randomNormal(2, 0.5),
+    getNote: () => getRandom(chord, 3).map(val => val+"3"),
     probability: 1,
-    getLength: randomNormal(toSecs("8n"), toSecs("64n")),
-    length: toSecs('8n'),
-    quantize: '16n',
-    snap: "8n",
-    onDraw: doCircle
+    getLength: randomNormal(toSecs("1m"), toSecs("2n.")),
+    quantize: '4n',
+    onDraw: circleDrawer(null, 0.2, 1.5)
 })
 
-let i = 0;
-let intervals = [1, 6, 2, 5]
-Transport.scheduleRepeat(time => {
-    let newInt = intervals[i++%intervals.length]-1;
-    // let chord = Note.simplify(chords[newInt]) + " minor blues"
-    // console.log("CHORD: " + chord)
-    // notes = Scale.notes(chord).map(Note.simplify).map(note => note)
-    console.log(chords[newInt])
-    melody.notes = Chord.notes(chords[newInt])
-    // backing.notes = notes
-}, "4m")
+new Instrument.Repeater(melodySynth, {
+    notes: notes,
+    getNote: movingMean(perlinNoise(0.1, 2.5, 4), 0.5),
+    // getNote: perlinNoise(3, 3, 1),
+    // getNote: () => seconds()/3,
+    getProbability: perlinNoise(0.4, 0.4, 0.6),
+    // probability: 1,
+    getLength: movingMean(perlinNoise(0.4, toSecs("16n"), toSecs("4n")), toSecs("8n")),
+    // length: toSecs('8n'),
+    // quantize: '16n',
+    // snap: "8n",
+    onDraw: circleDrawer(50)
+})
 
-Transport.swing = 0
+Transport.swing = 1
 context.latencyHint = process.env.NODE_ENV == "production" ? "playback" : "balanced"
 
 //also starts transport
