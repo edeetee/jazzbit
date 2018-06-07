@@ -91,7 +91,7 @@ export class Repeater {
             options.getProbability
 
         let getNote = this.note ? () => this.note : 
-        this.notes ? () => floatToNote(this.notes, options.getNote()) : 
+            this.notes ? () => floatToNote(this.notes, options.getNote()) : 
                 options.getNote
 
         let seed = newSeed()
@@ -101,6 +101,8 @@ export class Repeater {
         //transport callback
         let playNote = function (time) {
             let length = Math.max(0, getLength())
+
+            if(this.debug) console.log('test')
 
             //quantize if exists
             if (quantize){

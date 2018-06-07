@@ -1,5 +1,5 @@
 import Tone, { MembraneSynth, FMSynth, Transport, Synth, context } from 'tone'
-import { Scale, Chord, Note } from 'tonal'
+import { Scale, Chord, Note, Distance } from 'tonal'
 import * as Key from 'tonal-key'
 import {randomNormal} from 'd3-random'
 
@@ -10,7 +10,8 @@ var {staticReturn, perlinNoise, Repeater, floatToNote, toSecs, movingMean, secon
 
 //visual logic
 let bases = Note.names(" b")
-let key = bases[Math.floor(bases.length*Math.random())] + (Math.random()<0.5 ? " minor" : " major")
+let base = bases[Math.floor(bases.length*Math.random())]
+let key = base + (Math.random()<0.5 ? " minor" : " major")
 console.log("Key: " + key)
 let chords = Key.chords(key)
 
@@ -21,20 +22,23 @@ let progression = progressions[Math.floor(progressions.length*Math.random())]
 let chord = Chord.notes(chords[progression[0]])
 
 Transport.scheduleRepeat(time => {
-    let newInt = progression[i]-1;
-    i++;
-    if(i == progression.length){
+    if(progression.length <= i){
         progression = progressions[Math.floor(progressions.length*Math.random())]
         i = 0
     }
+
+    let newInt = progression[i]-1;
     // let chord = Note.simplify(chords[newInt]) + " minor blues"
-    // console.log("CHORD: " + chord)
     // notes = Scale.notes(chord).map(Note.simplify).map(note => note)
-    console.log("Chord: " + chords[newInt])
     chord = Chord.notes(chords[newInt])
+    console.log("CHORD: " + chord)
+    melody.notes = Scale.notes(Distance.transpose(base, "1P") + ' blues')
+
+    i++;
 }, "4m")
 
 let notes = Scale.notes(key + ' blues')
+// let notes = chord.map()     
 console.log("notes: " + notes)
 
 function getRandom(arr, n) {
@@ -111,21 +115,22 @@ let editor = new SynthEditor("jsoncontainer", kickSynth)
 
 let percussionProb = perlinNoise(0.5, 0, 1)
 
-new Instrument.Repeater(kickSynth, {
-    note: "C1",
-    getLength: randomNormal(toSecs("8n"), toSecs("4n")),
-    quantize: '8n',
-    getProbability: percussionProb,
-    probability: 1
-}).Debug()
+// new Instrument.Repeater(kickSynth, {
+//     note: "C1",
+//     getLength: randomNormal(toSecs("8n"), toSecs("4n")),
+//     length: "8n",
+//     quantize: '8n',
+//     getProbability: percussionProb,
+//     // probability: 1
+// }).Debug()
 
-new Instrument.Repeater(cymbalSynth, {
-    note: "C1",
-    getLength: randomNormal(toSecs("8n"), toSecs("4n")),
-    quantize: '8n',
-    getProbability: percussionProb,
-    probability: 1
-}).Debug()
+// new Instrument.Repeater(cymbalSynth, {
+//     note: "C0",
+//     getLength: randomNormal(toSecs("8n"), toSecs("4n")),
+//     quantize: '8n',
+//     getProbability: percussionProb,
+//     // probability: 1
+// })
 
 new Instrument.Repeater(bassSynth, {
     // notes: Chord.notes(chords[progression[0]]),
@@ -137,14 +142,14 @@ new Instrument.Repeater(bassSynth, {
     onDraw: circleDrawer(null, 0.2, 1.5)
 })
 
-new Instrument.Repeater(melodySynth, {
+let melody = new Instrument.Repeater(melodySynth, {
     notes: notes,
-    getNote: movingMean(perlinNoise(0.1, 2.5, 4), 0.5),
+    getNote: movingMean(perlinNoise(0.1, 3, 4), 0.5),
     // getNote: perlinNoise(3, 3, 1),
     // getNote: () => seconds()/3,
     getProbability: perlinNoise(0.4, 0.4, 0.6),
     // probability: 1,
-    getLength: movingMean(perlinNoise(0.4, toSecs("16n"), toSecs("4n")), toSecs("8n")),
+    getLength: movingMean(perlinNoise(0.4, toSecs("16n"), toSecs("4n")), toSecs("16n")),
     // length: toSecs('8n'),
     // quantize: '16n',
     // snap: "8n",
