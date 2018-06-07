@@ -158,13 +158,13 @@ var Tone = __webpack_require__(1);
 var Tone_default = /*#__PURE__*/__webpack_require__.n(Tone);
 
 // EXTERNAL MODULE: ./node_modules/tonal/index.js + 4 modules
-var tonal = __webpack_require__(6);
+var tonal = __webpack_require__(4);
 
 // EXTERNAL MODULE: ./node_modules/tonal-key/build/es6.js
 var es6 = __webpack_require__(31);
 
 // EXTERNAL MODULE: ./node_modules/d3-random/index.js + 7 modules
-var d3_random = __webpack_require__(10);
+var d3_random = __webpack_require__(11);
 
 // EXTERNAL MODULE: ./node_modules/noisejs/index.js
 var noisejs = __webpack_require__(100);
@@ -267,7 +267,7 @@ class instrument_Repeater {
             options.getProbability
 
         let getNote = this.note ? () => this.note : 
-        this.notes ? () => floatToNote(this.notes, options.getNote()) : 
+            this.notes ? () => floatToNote(this.notes, options.getNote()) : 
                 options.getNote
 
         let seed = newSeed()
@@ -277,6 +277,8 @@ class instrument_Repeater {
         //transport callback
         let playNote = function (time) {
             let length = Math.max(0, getLength())
+
+            if(this.debug) console.log('test')
 
             //quantize if exists
             if (quantize){
@@ -485,7 +487,7 @@ function circleDrawer(maxRadius, backgroundOnChange, middleWidth){
         start = newStart
         envelope = newEnvelope
 
-        note = ( tonal["b" /* Note */].midi(newNote) || newNote.reduce((prev, note) => prev+tonal["b" /* Note */].midi(note), 0)/newNote.length )/12
+        note = ( tonal["c" /* Note */].midi(newNote) || newNote.reduce((prev, note) => prev+tonal["c" /* Note */].midi(note), 0)/newNote.length )/12
         
         let speed = note*note*0.002
         getX = perlinNoise(speed, 0, gui_p5.windowWidth, note*9999)
@@ -538,8 +540,9 @@ class gui_SynthEditor{
 var {staticReturn: src_staticReturn, perlinNoise: src_perlinNoise, Repeater: src_Repeater, floatToNote: src_floatToNote, toSecs: src_toSecs, movingMean: src_movingMean, seconds: src_seconds} = instrument_namespaceObject;
 
 //visual logic
-let bases = tonal["b" /* Note */].names(" b")
-let key = bases[Math.floor(bases.length*Math.random())] + (Math.random()<0.5 ? " minor" : " major")
+let bases = tonal["c" /* Note */].names(" b")
+let base = bases[Math.floor(bases.length*Math.random())]
+let key = base + (Math.random()<0.5 ? " minor" : " major")
 console.log("Key: " + key)
 let chords = es6["a" /* chords */](key)
 
@@ -550,20 +553,23 @@ let progression = progressions[Math.floor(progressions.length*Math.random())]
 let chord = tonal["a" /* Chord */].notes(chords[progression[0]])
 
 Tone["Transport"].scheduleRepeat(time => {
-    let newInt = progression[i]-1;
-    i++;
-    if(i == progression.length){
+    if(progression.length <= i){
         progression = progressions[Math.floor(progressions.length*Math.random())]
         i = 0
     }
+
+    let newInt = progression[i]-1;
     // let chord = Note.simplify(chords[newInt]) + " minor blues"
-    // console.log("CHORD: " + chord)
     // notes = Scale.notes(chord).map(Note.simplify).map(note => note)
-    console.log("Chord: " + chords[newInt])
     chord = tonal["a" /* Chord */].notes(chords[newInt])
+    console.log("CHORD: " + chord)
+    melody.notes = tonal["d" /* Scale */].notes(tonal["b" /* Distance */].transpose(base, "1P") + ' blues')
+
+    i++;
 }, "4m")
 
-let notes = tonal["c" /* Scale */].notes(key + ' blues')
+let notes = tonal["d" /* Scale */].notes(key + ' blues')
+// let notes = chord.map()     
 console.log("notes: " + notes)
 
 function getRandom(arr, n) {
@@ -640,21 +646,22 @@ let src_editor = new gui_SynthEditor("jsoncontainer", kickSynth)
 
 let percussionProb = src_perlinNoise(0.5, 0, 1)
 
-new instrument_Repeater(kickSynth, {
-    note: "C1",
-    getLength: Object(d3_random["a" /* randomNormal */])(src_toSecs("8n"), src_toSecs("4n")),
-    quantize: '8n',
-    getProbability: percussionProb,
-    probability: 1
-}).Debug()
+// new Instrument.Repeater(kickSynth, {
+//     note: "C1",
+//     getLength: randomNormal(toSecs("8n"), toSecs("4n")),
+//     length: "8n",
+//     quantize: '8n',
+//     getProbability: percussionProb,
+//     // probability: 1
+// }).Debug()
 
-new instrument_Repeater(cymbalSynth, {
-    note: "C1",
-    getLength: Object(d3_random["a" /* randomNormal */])(src_toSecs("8n"), src_toSecs("4n")),
-    quantize: '8n',
-    getProbability: percussionProb,
-    probability: 1
-}).Debug()
+// new Instrument.Repeater(cymbalSynth, {
+//     note: "C0",
+//     getLength: randomNormal(toSecs("8n"), toSecs("4n")),
+//     quantize: '8n',
+//     getProbability: percussionProb,
+//     // probability: 1
+// })
 
 new instrument_Repeater(bassSynth, {
     // notes: Chord.notes(chords[progression[0]]),
@@ -666,14 +673,14 @@ new instrument_Repeater(bassSynth, {
     onDraw: circleDrawer(null, 0.2, 1.5)
 })
 
-new instrument_Repeater(melodySynth, {
+let melody = new instrument_Repeater(melodySynth, {
     notes: notes,
-    getNote: src_movingMean(src_perlinNoise(0.1, 2.5, 4), 0.5),
+    getNote: src_movingMean(src_perlinNoise(0.1, 3, 4), 0.5),
     // getNote: perlinNoise(3, 3, 1),
     // getNote: () => seconds()/3,
     getProbability: src_perlinNoise(0.4, 0.4, 0.6),
     // probability: 1,
-    getLength: src_movingMean(src_perlinNoise(0.4, src_toSecs("16n"), src_toSecs("4n")), src_toSecs("8n")),
+    getLength: src_movingMean(src_perlinNoise(0.4, src_toSecs("16n"), src_toSecs("4n")), src_toSecs("16n")),
     // length: toSecs('8n'),
     // quantize: '16n',
     // snap: "8n",
@@ -696,7 +703,7 @@ exports = module.exports = __webpack_require__(17)(false);
 
 
 // module
-exports.push([module.i, "#jsoncontainer{\r\n    width: 400px;\r\n    position: absolute;\r\n    padding: 10px;\r\n    opacity: 0.4;\r\n    left: -400px;\r\n\r\n    transition: all 0.2s;\r\n}\r\n\r\n#jsoncontainer:hover {\r\n    opacity: 1;\r\n    left: 0px;\r\n}\r\n\r\n#jsoncontainer > * {\r\n    background: white;\r\n}\r\n\r\n#p5Container > * {\r\n    width: 100%;\r\n    height: 100%;\r\n    position: absolute;\r\n}", ""]);
+exports.push([module.i, "#jsoncontainer{\n    width: 400px;\n    position: absolute;\n    padding: 10px;\n    opacity: 0.4;\n    left: -400px;\n\n    transition: all 0.2s;\n}\n\n#jsoncontainer:hover {\n    opacity: 1;\n    left: 0px;\n}\n\n#jsoncontainer > * {\n    background: white;\n}\n\n#p5Container > * {\n    width: 100%;\n    height: 100%;\n    position: absolute;\n}", ""]);
 
 // exports
 
